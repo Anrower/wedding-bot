@@ -60,24 +60,24 @@ const start = () => {
       id: '1',
       text: 'Ведьмак: "Последнее желание"',
       callback_data: 'Witcher the last wish',
-      booked: 'false',
-      whoBooked: 'null',
+      booked: false,
+      whoBooked: null,
       // url: 'https://oz.by/books/more10912445.html?sbtoken=ab4a4b75fd6a02956822cc7d0f33fe22'
     }],
     [{
       id: '2',
       text: 'Б. Акунин "Инь и Янь"',
       callback_data: 'Akunin Yin and Yang',
-      booked: 'true',
-      whoBooked: 'null',
+      booked: false,
+      whoBooked: null,
       // url: 'https://belkniga.by/catalog/khudozhestvennaya/detektivy_i_priklyucheniya/zakh_akunin_in_i_yan_belaya_chernaya_versii/'
     }],
     [{
       id: '3',
       text: 'Cтивен Кинг как писать книги',
       callback_data: 'S.King How to wrie the books',
-      booked: 'false',
-      whoBooked: 'null',
+      booked: false,
+      whoBooked: null,
       // url: 'https://oz.by/books/more10627636.html'
     }],
   ];
@@ -86,15 +86,29 @@ const start = () => {
       inline_keyboard: bookList
     })
   }
+  const getBookUrlbyId = (id) => {
+    const dictionary = {
+      1: 'https://oz.by/books/more10912445.html?sbtoken=ab4a4b75fd6a02956822cc7d0f33fe22',
+      2: 'https://belkniga.by/catalog/khudozhestvennaya/detektivy_i_priklyucheniya/zakh_akunin_in_i_yan_belaya_chernaya_versii/',
+      3: 'https://oz.by/books/more10627636.html',
+    }
+    return dictionary[id];
+  }
 
   const updateBooks = (data) => {
-    // if(data[0])
-    console.log(data);
     const arr = [];
-    for (let i = 0; i < data.length; i++) {
-      arr.push([data[i]]);
+    if (data[0].booked) {
+      for (let i = 0; i < data.length; i++) {
+        data[i].url = getBookUrlbyId(data[i].id);
+        // console.log(getBookUrlbyId(data[i].id));
+        // console.log(data[i].url);
+        arr.push([data[i]]);
+      }
+    } else {
+      for (let i = 0; i < data.length; i++) {
+        arr.push([data[i]]);
+      }
     }
-    // console.log(arr);
     return createTlgKeyboard(arr);
   }
 
@@ -112,12 +126,12 @@ const start = () => {
   const chooseBook = (data, userName) => {
     for (let i = 0; i < bookList.length; i++) {
       if (bookList[i][0].callback_data === data) {
-        bookList[i][0].booked = 'false';
+        bookList[i][0].booked = true;
         bookList[i][0].whoBooked = userName;
         const book = bookList[i][0];
         const bookId = bookList[i][0].id;
-        return [book, bookId];
-        // return book;
+        return [book, bookId]; //for PUT method
+        // return book; //for POST method
       }
     }
     return 'this book is booked';
@@ -135,7 +149,7 @@ const start = () => {
     }
 
     if (text === '/help') {
-      return bot.sendMessage(chatId, `Список доступных комманд: \r\n "/bookedBook" - Показать мои забронированные книги. \r\n "/pickBook" - Выбрать книгу. \r\n "/pickBookLocal" - Загрузить на сервер книги локальные.`)
+      return bot.sendMessage(chatId, `Список доступных комманд: \r\n "/myBookedBook" - Показать мои забронированные книги. \r\n "/pickBook" - Выбрать книгу. \r\n "/pickBookLocal" - Загрузить на сервер книги локальные.`)
     }
 
     if (text === '/pickBook') {
@@ -151,14 +165,13 @@ const start = () => {
       return;
     }
 
-    if (text === '/bookedBook') {
+    if (text === '/myBookedBook') {
       await bot.sendMessage(chatId, 'Вот список твоих забронированных книг:');
-      const keyboard = await getBooksBy(userName);
-      await bot.sendMessage(chatId, 'тебе как выбрать книгу', keyboard);
+      const searchQuery = `?whoBooked=${userName}`;
+      const keyboard = await getBooksBy(searchQuery);
+      await bot.sendMessage(chatId, 'Вот список книг которые ты забронировал:', keyboard);
       return;
     }
-
-
 
     return bot.sendMessage(chatId, 'Я тебя не понимаю, попробуй еще раз! Список доступных команд "/help"')
   })
@@ -169,6 +182,7 @@ const start = () => {
     const chatId = msg.message.chat.id;
     bot.answerCallbackQuery(msg.id)
       .then(() => PUTBooks(chooseBook(data, userName)))
+      // .then(() => POSTBooks(chooseBook(data, userName)))
       .then(() => bot.sendMessage(chatId, `Ты выбрал книгу ${data}`));
   });
 };
