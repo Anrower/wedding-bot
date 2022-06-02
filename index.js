@@ -15,7 +15,7 @@ const upgradeeBooks = (booksData) =>
     },
     body: JSON.stringify(booksData)
   });
-
+//TODO HOME Buttons
 const start = () => {
   //TODO  GET
   const getBooksBy = async (options) => {
@@ -92,7 +92,6 @@ const start = () => {
     }
     return dictionary[id];
   }
-
   const addUrl = (arr, data) => {
     for (let i = 0; i < data.length; i++) {
       data[i].url = getBookUrlbyId(data[i].id);
@@ -100,7 +99,6 @@ const start = () => {
     }
     return arr;
   }
-
   const removeUrl = (arr, data) => {
     for (let i = 0; i < data.length; i++) {
       delete data[i].url;
@@ -108,10 +106,11 @@ const start = () => {
     }
     return arr;
   }
-
   const updateBooksData = (data, ctx) => {
+    if (data.length === 0) {
+      return 0;
+    }
     const arr = [];
-    // console.log(ctx);
     if (ctx === '/myBookedBook') {
       addUrl(arr, data);
     }
@@ -189,12 +188,21 @@ const start = () => {
       return bot.sendMessage(chatId, `Список доступных комманд: \r\n "/myBookedBook" - Показать мои забронированные книги. \r\n "/pickBook" - Выбрать книгу. \r\n "/pickBookLocal" - Загрузить на сервер книги локальные. \r\n "/cancelBooking" - Отменить ранее забронированные книги.`)
     }
 
+    if (text === '/home') {
+      const keyboard = getHomeKeyboard();
+      await bot.sendMessage(chatId, 'Что будем делать', keyboard);
+    }
+
     if (text === '/pickBook') {
       await bot.sendSticker(chatId, 'https://tlgrm.ru/_/stickers/1e9/504/1e9504b7-11d0-4e6e-ac8e-41f16352d6a7/9.webp');
       const searchQuery = `?booked=false`
       const keyboard = await getBooksBy(['/pickBook', searchQuery]);
-      await bot.sendMessage(chatId, 'тебе как выбрать книгу', keyboard);
-      return;
+      if (keyboard === 0) {
+        return bot.sendMessage(chatId, 'К сожалению все книги уже разобраны');
+      } else {
+        await bot.sendMessage(chatId, 'тебе как выбрать книгу', keyboard);
+        return;
+      }
     }
 
     if (text === '/pickBookLocal') {
@@ -206,16 +214,23 @@ const start = () => {
     if (text === '/myBookedBook') {
       const searchQuery = `?whoBooked=${userName}`;
       const keyboard = await getBooksBy(['/myBookedBook', searchQuery]);
-      await bot.sendMessage(chatId, 'Вот список книг которые ты забронировал:', keyboard);
-      return;
+      if (keyboard === 0) {
+        return bot.sendMessage(chatId, 'На данный момент у тебя нет забронированных книг');
+      } else {
+        await bot.sendMessage(chatId, 'Вот список книг которые ты забронировал:', keyboard);
+        return;
+      }
     }
 
     if (text === '/cancelBooking') {
-      bot.sendMessage(chatId, 'Вот список книг которые ты забронировал:');
       const searchQuery = `?whoBooked=${userName}`;
       const keyboard = await getBooksBy(['/cancelBooking', searchQuery]);
-      await bot.sendMessage(chatId, 'Выбери книгу от которой хочешь отказаться', keyboard);
-      return;
+      if (keyboard === 0) {
+        return bot.sendMessage(chatId, 'На данный момент у тебя нет забронированных книг, что бы их отменять');
+      } else {
+        await bot.sendMessage(chatId, 'Выбери книгу от которой хочешь отказаться', keyboard);
+        return;
+      }
     }
 
     return bot.sendMessage(chatId, 'Хм... нужно подумать! Список доступных команд "/help"')
