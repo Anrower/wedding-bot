@@ -137,18 +137,41 @@ const start = () => {
     return bookOptions;
   }
 
-  const chooseBook = (data, userName = null) => {
-    for (let i = 0; i < bookList.length; i++) {
-      if (bookList[i][0].callback_data === data) {
-        bookList[i][0].booked = false;
-        // bookList[i][0].whoBooked = userName; //for PUT
-        const book = bookList[i][0];
-        const bookId = bookList[i][0].id;
-        // return [book, bookId]; //for PUT method
-        return book; //for POST method
+  const chooseBook = (data, userName, text) => {
+    if (text === 'тебе как выбрать книгу локально') {
+      userName = null;
+      for (let i = 0; i < bookList.length; i++) {
+        if (bookList[i][0].callback_data === data) {
+          bookList[i][0].booked = false;
+          bookList[i][0].whoBooked = userName;
+          const book = bookList[i][0];
+          return book;
+        }
       }
     }
-    return 'this book is booked';
+    if (text === 'Выбери книгу от которой хочешь отказаться') {
+      userName = null;
+      for (let i = 0; i < bookList.length; i++) {
+        if (bookList[i][0].callback_data === data) {
+          bookList[i][0].booked = false;
+          bookList[i][0].whoBooked = userName;
+          const book = bookList[i][0];
+          const bookId = bookList[i][0].id;
+          return [book, bookId];
+        }
+      }
+    }
+    if (text === 'тебе как выбрать книгу') {
+      for (let i = 0; i < bookList.length; i++) {
+        if (bookList[i][0].callback_data === data) {
+          bookList[i][0].booked = true;
+          bookList[i][0].whoBooked = userName;
+          const book = bookList[i][0];
+          const bookId = bookList[i][0].id;
+          return [book, bookId];
+        }
+      }
+    }
   }
 
   bot.on('message', async msg => {
@@ -188,9 +211,10 @@ const start = () => {
     }
 
     if (text === '/cancelBooking') {
+      bot.sendMessage(chatId, 'Вот список книг которые ты забронировал:');
       const searchQuery = `?whoBooked=${userName}`;
       const keyboard = await getBooksBy(['/cancelBooking', searchQuery]);
-      await bot.sendMessage(chatId, 'Вот список книг которые ты забронировал, выбери книгу от которой хочешь отказаться', keyboard);
+      await bot.sendMessage(chatId, 'Выбери книгу от которой хочешь отказаться', keyboard);
       return;
     }
 
@@ -206,14 +230,19 @@ const start = () => {
     if (text === 'тебе как выбрать книгу локально') {
       bot.answerCallbackQuery(msg.id)
         // .then(() => PUTBooks(chooseBook(data, userName)))
-        .then(() => POSTBooks(chooseBook(data, userName)))
+        .then(() => POSTBooks(chooseBook(data, userName, text)))
         .then(() => bot.sendMessage(chatId, `Ты выбрал книгу ${data}`));
     }
-    if (text === 'тебе как выбрать книгу')
+    if (text === 'тебе как выбрать книгу') {
       bot.answerCallbackQuery(msg.id)
-        // .then(() => PUTBooks(chooseBook(data, userName)))
-        .then(() => POSTBooks(chooseBook(data, userName)))
+        .then(() => PUTBooks(chooseBook(data, userName, text)))
         .then(() => bot.sendMessage(chatId, `Ты выбрал книгу ${data}`));
+    }
+    if (text === 'Выбери книгу от которой хочешь отказаться') {
+      bot.answerCallbackQuery(msg.id)
+        .then(() => PUTBooks(chooseBook(data, userName, text)))
+        .then(() => bot.sendMessage(chatId, `Ты отказался от книги: ${data}`));
+    }
   });
 };
 
