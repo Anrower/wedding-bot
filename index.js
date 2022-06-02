@@ -5,9 +5,6 @@ import fetch from 'node-fetch';
 
 const token = '5111060876:AAEVrZ9OC9H6chIbTJOoRdY0rB83nxbXR1U';
 const baseUrl = 'https://62935bd37aa3e6af1a0a2292.mockapi.io/wedbot/book';
-const searchByFree = '?booked=false';
-let searchByUser = null;
-
 const bot = new TelegramApi(token, { polling: true });
 
 const upgradeeBooks = (booksData) =>
@@ -20,19 +17,20 @@ const upgradeeBooks = (booksData) =>
   });
 
 const start = () => {
-
-  const getBooksBy = async (options = null) => {
-    return await fetch(baseUrl + options)
+  //TODO  GET
+  const getBooksBy = async (options) => {
+    const [ctx, searchStr] = options;
+    return await fetch(baseUrl + searchStr)
       .then(res => res.json())
-      .then(data => updateBooks(data));
+      .then(data => updateBooksData(data, ctx));
   }
 
   //TODO  PUT
   const PUTBooks = async (params) => {
     const [data, bookId] = params;
-    console.log(bookId);
+    // console.log(bookId);
     const url = `${baseUrl}/${bookId}`;
-    console.log(url);
+    // console.log(url);
     await fetch(url, {
       method: "PUT",
       headers: {
@@ -40,7 +38,7 @@ const start = () => {
       },
       body: JSON.stringify(data)
     })
-      .then(res => console.log(res))
+    // .then(res => console.log(res))
   }
   //TODO  POST
   const POSTBooks = async (data) => {
@@ -51,7 +49,7 @@ const start = () => {
       },
       body: JSON.stringify(data)
     })
-      .then(res => console.log(res))
+    // .then(res => console.log(res))
   }
 
   // ? defaultKeyboard for update server data;
@@ -95,19 +93,35 @@ const start = () => {
     return dictionary[id];
   }
 
-  const updateBooks = (data) => {
+  const addUrl = (arr, data) => {
+    for (let i = 0; i < data.length; i++) {
+      data[i].url = getBookUrlbyId(data[i].id);
+      arr.push([data[i]]);
+    }
+    return arr;
+  }
+
+  const removeUrl = (arr, data) => {
+    for (let i = 0; i < data.length; i++) {
+      delete data[i].url;
+      arr.push([data[i]]);
+    }
+    return arr;
+  }
+
+  const updateBooksData = (data, ctx) => {
     const arr = [];
-    if (data[0].booked) {
-      for (let i = 0; i < data.length; i++) {
-        data[i].url = getBookUrlbyId(data[i].id);
-        // console.log(getBookUrlbyId(data[i].id));
-        // console.log(data[i].url);
-        arr.push([data[i]]);
-      }
-    } else {
+    // console.log(ctx);
+    if (ctx === '/myBookedBook') {
+      addUrl(arr, data);
+    }
+    if (ctx === '/pickBook') {
       for (let i = 0; i < data.length; i++) {
         arr.push([data[i]]);
       }
+    }
+    if (ctx === '/cancelBooking') {
+      removeUrl(arr, data)
     }
     return createTlgKeyboard(arr);
   }
@@ -123,15 +137,15 @@ const start = () => {
     return bookOptions;
   }
 
-  const chooseBook = (data, userName) => {
+  const chooseBook = (data, userName = null) => {
     for (let i = 0; i < bookList.length; i++) {
       if (bookList[i][0].callback_data === data) {
-        bookList[i][0].booked = true;
-        bookList[i][0].whoBooked = userName;
+        bookList[i][0].booked = false;
+        // bookList[i][0].whoBooked = userName; //for PUT
         const book = bookList[i][0];
         const bookId = bookList[i][0].id;
-        return [book, bookId]; //for PUT method
-        // return book; //for POST method
+        // return [book, bookId]; //for PUT method
+        return book; //for POST method
       }
     }
     return 'this book is booked';
@@ -149,41 +163,57 @@ const start = () => {
     }
 
     if (text === '/help') {
-      return bot.sendMessage(chatId, `Список доступных комманд: \r\n "/myBookedBook" - Показать мои забронированные книги. \r\n "/pickBook" - Выбрать книгу. \r\n "/pickBookLocal" - Загрузить на сервер книги локальные.`)
+      return bot.sendMessage(chatId, `Список доступных комманд: \r\n "/myBookedBook" - Показать мои забронированные книги. \r\n "/pickBook" - Выбрать книгу. \r\n "/pickBookLocal" - Загрузить на сервер книги локальные. \r\n "/cancelBooking" - Отменить ранее забронированные книги.`)
     }
 
     if (text === '/pickBook') {
       await bot.sendSticker(chatId, 'https://tlgrm.ru/_/stickers/1e9/504/1e9504b7-11d0-4e6e-ac8e-41f16352d6a7/9.webp');
-      const keyboard = await getBooksBy(searchByFree);
+      const searchQuery = `?booked=false`
+      const keyboard = await getBooksBy(['/pickBook', searchQuery]);
       await bot.sendMessage(chatId, 'тебе как выбрать книгу', keyboard);
       return;
     }
 
     if (text === '/pickBookLocal') {
       await bot.sendSticker(chatId, 'https://tlgrm.ru/_/stickers/1e9/504/1e9504b7-11d0-4e6e-ac8e-41f16352d6a7/9.webp');
-      await bot.sendMessage(chatId, 'тебе как выбрать книгу', defaultKeyboard);
+      await bot.sendMessage(chatId, 'тебе как выбрать книгу локально', defaultKeyboard);
       return;
     }
 
     if (text === '/myBookedBook') {
-      await bot.sendMessage(chatId, 'Вот список твоих забронированных книг:');
       const searchQuery = `?whoBooked=${userName}`;
-      const keyboard = await getBooksBy(searchQuery);
+      const keyboard = await getBooksBy(['/myBookedBook', searchQuery]);
       await bot.sendMessage(chatId, 'Вот список книг которые ты забронировал:', keyboard);
       return;
     }
 
-    return bot.sendMessage(chatId, 'Я тебя не понимаю, попробуй еще раз! Список доступных команд "/help"')
+    if (text === '/cancelBooking') {
+      const searchQuery = `?whoBooked=${userName}`;
+      const keyboard = await getBooksBy(['/cancelBooking', searchQuery]);
+      await bot.sendMessage(chatId, 'Вот список книг которые ты забронировал, выбери книгу от которой хочешь отказаться', keyboard);
+      return;
+    }
+
+    return bot.sendMessage(chatId, 'Хм... нужно подумать! Список доступных команд "/help"')
   })
 
   bot.on('callback_query', async msg => {
     const data = msg.data;
     const userName = msg.message.chat.username;
     const chatId = msg.message.chat.id;
-    bot.answerCallbackQuery(msg.id)
-      .then(() => PUTBooks(chooseBook(data, userName)))
-      // .then(() => POSTBooks(chooseBook(data, userName)))
-      .then(() => bot.sendMessage(chatId, `Ты выбрал книгу ${data}`));
+    console.log(msg.message.text);
+    const text = msg.message.text;
+    if (text === 'тебе как выбрать книгу локально') {
+      bot.answerCallbackQuery(msg.id)
+        // .then(() => PUTBooks(chooseBook(data, userName)))
+        .then(() => POSTBooks(chooseBook(data, userName)))
+        .then(() => bot.sendMessage(chatId, `Ты выбрал книгу ${data}`));
+    }
+    if (text === 'тебе как выбрать книгу')
+      bot.answerCallbackQuery(msg.id)
+        // .then(() => PUTBooks(chooseBook(data, userName)))
+        .then(() => POSTBooks(chooseBook(data, userName)))
+        .then(() => bot.sendMessage(chatId, `Ты выбрал книгу ${data}`));
   });
 };
 
